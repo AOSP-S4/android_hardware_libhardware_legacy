@@ -1064,10 +1064,14 @@ status_t AudioPolicyManagerBase::setStreamVolumeIndex(AudioSystem::stream_type s
     for (size_t i = 0; i < mOutputs.size(); i++) {
         audio_devices_t curDevice =
                 getDeviceForVolume(mOutputs.valueAt(i)->device());
+<<<<<<< HEAD
 #ifndef ICS_AUDIO_BLOB
         if ((device == AUDIO_DEVICE_OUT_DEFAULT) || (device == curDevice))
 #endif
         {
+=======
+        if ((device == AUDIO_DEVICE_OUT_DEFAULT) || (device == curDevice)) {
+>>>>>>> e92d623... audio policy: apply default device volume
             status_t volStatus = checkAndSetVolume(stream, index, mOutputs.keyAt(i), curDevice);
             if (volStatus != NO_ERROR) {
                 status = volStatus;
