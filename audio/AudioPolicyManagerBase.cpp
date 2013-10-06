@@ -58,7 +58,6 @@
 #include <hardware/audio.h>
 #include <math.h>
 #include <hardware_legacy/audio_policy_conf.h>
-#include <cutils/properties.h>
 
 #ifdef DOLBY_UDC_MULTICHANNEL
 // System property shared with dolby codec
@@ -999,8 +998,7 @@ status_t AudioPolicyManagerBase::stopInput(audio_io_handle_t input)
         return INVALID_OPERATION;
     } else {
         AudioParameter param = AudioParameter();
-        // AUDIO_DEVICE_BIT_IN value allows to stop any audio input stream
-        param.addInt(String8(AudioParameter::keyRouting), AUDIO_DEVICE_BIT_IN);
+        param.addInt(String8(AudioParameter::keyRouting), 0);
         mpClientInterface->setParameters(input, param.toString());
         inputDesc->mRefCount = 0;
         return NO_ERROR;
@@ -1064,14 +1062,10 @@ status_t AudioPolicyManagerBase::setStreamVolumeIndex(AudioSystem::stream_type s
     for (size_t i = 0; i < mOutputs.size(); i++) {
         audio_devices_t curDevice =
                 getDeviceForVolume(mOutputs.valueAt(i)->device());
-<<<<<<< HEAD
 #ifndef ICS_AUDIO_BLOB
         if ((device == AUDIO_DEVICE_OUT_DEFAULT) || (device == curDevice))
 #endif
         {
-=======
-        if ((device == AUDIO_DEVICE_OUT_DEFAULT) || (device == curDevice)) {
->>>>>>> e92d623... audio policy: apply default device volume
             status_t volStatus = checkAndSetVolume(stream, index, mOutputs.keyAt(i), curDevice);
             if (volStatus != NO_ERROR) {
                 status = volStatus;
@@ -2485,22 +2479,7 @@ uint32_t AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output,
 
     if (device != AUDIO_DEVICE_NONE) {
         outputDesc->mDevice = device;
-
-        // Force routing if previously asked for this output
-        if (outputDesc->mForceRouting) {
-            ALOGV("Force routing to current device as previous device was null for this output");
-            force = true;
-
-            // Request consumed. Reset mForceRouting to false
-            outputDesc->mForceRouting = false;
-        }
     }
-    else {
-        // Device is null and does not reflect the routing. Save the necessity to force
-        // re-routing upon next attempt to select a non-null device for this output
-        outputDesc->mForceRouting = true;
-    }
-
     muteWaitMs = checkDeviceMuteStrategies(outputDesc, prevDevice, delayMs);
 
     // Do not change the routing if:
@@ -2516,7 +2495,6 @@ uint32_t AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output,
     // do the routing
     param.addInt(String8(AudioParameter::keyRouting), (int)device);
     mpClientInterface->setParameters(output, param.toString(), delayMs);
-    param.addInt(String8(AudioParameter::keyStreamFlags), (int)outputDesc->mFlags);
 
     // update stream volumes according to new device
     applyStreamVolumes(output, device, delayMs);
@@ -2552,14 +2530,6 @@ AudioPolicyManagerBase::IOProfile *AudioPolicyManagerBase::getInputProfile(audio
 audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
 {
     uint32_t device = AUDIO_DEVICE_NONE;
-    // Retrieve the camera facing direction.
-    char cameraFacing[PROPERTY_VALUE_MAX];
-    // Pass the third parameter as "1", incase the property value is
-    // not retrieved, the default builtin mic should be used
-    property_get("media.camera.facing", cameraFacing, "1");
-    // front facing camera(i.e. same side as screen) will have value 1(one)
-    // and back facing camera(i.e. opposite side of screen) will have 0(zero)
-    bool cameraFacingBack = (cameraFacing[0] == '0') ? true : false;
 
     switch (inputSource) {
     case AUDIO_SOURCE_VOICE_UPLINK:
@@ -2583,11 +2553,10 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
-        // Use the Mic which is in same direction as the orientation of camera
-        if ((mAvailableInputDevices & AudioSystem::DEVICE_IN_BACK_MIC) && cameraFacingBack) {
-            device = AudioSystem::DEVICE_IN_BACK_MIC;
-        } else {
-            device = AudioSystem::DEVICE_IN_BUILTIN_MIC;
+        if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
+            device = AUDIO_DEVICE_IN_BACK_MIC;
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+            device = AUDIO_DEVICE_IN_BUILTIN_MIC;
         }
         break;
     case AUDIO_SOURCE_VOICE_DOWNLINK:
